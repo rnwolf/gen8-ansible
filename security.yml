@@ -24,12 +24,7 @@
       # EXPLANATION: We assume your public key is already in authorized_keys.
       # This task ensures that passwords and root access are disabled.
 
-    - name: Configure Firewall (UFW)
-      ufw:
-        state: enabled
-        policy: deny
-        direction: incoming
-
+    # Specify the policy for UFW before activating.
     - name: Allow Essential Traffic
       ufw:
         rule: allow
@@ -40,6 +35,12 @@
         - '80'   # Caddy HTTP
         - '443'  # Caddy HTTPS
         - '2222' # Forgejo SSH (Collaborators)
+    
+    - name: Configure Firewall (UFW)
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
 
     - name: Create Fail2Ban Local Configuration
       copy:

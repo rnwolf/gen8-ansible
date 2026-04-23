@@ -88,11 +88,16 @@ chmod 600 ~/.ssh/authorized_keys
 ssh-copy-id -i ~/.ssh/id_rsa.pub user@remote_host
 ```
 
+## Update variables for Ansible playbooks
+
+vars/main.yml: Public/General variables (Email, Domain, DNS).
+vars/secrets.yml: Encrypted variables (Cloudflare Token, passwords).
 
 ## Deployment Instructions
 To restore the server from a blank SSD:
 1. Install base Ubuntu Server 26.04.
-2. Run: `ansible-playbook -i inventory.ini site.yml`
+2. If running ansible from WSL you will need to ensure that ansible user does not need to type password for escalating to sudo.
+3. Run: `ansible-playbook -i inventory.ini site.yml --ask-vault-pass --ask-become-pass`
 
 ## Playbook Roles
 - **baseline.yml**: Handles hardware-specific fixes (LVM) and the "Podman + Caddy" stack.

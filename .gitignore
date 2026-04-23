@@ -1,4 +1,5 @@
 # .gitignore
 .ssh/
 *.retry
-~/.gen8_vault_pass 
+.gen8_vault_pass 
+.ansible/

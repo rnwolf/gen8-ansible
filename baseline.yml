@@ -6,8 +6,16 @@
     # Variables moved here for reproducibility
     zfs_pool_name: "tank"
   vars_files:
+    - vars/main.yml
     - vars/secrets.yml
   tasks:
+    - name: Allow '{{ ansible_user }}' to use sudo without a password
+      copy:
+        content: "{{ ansible_user }} ALL=(ALL) NOPASSWD:ALL\n"
+        dest: "/etc/sudoers.d/{{ ansible_user }}"
+        mode: '0440'
+        validate: '/usr/sbin/visudo -cf %s'
+
     - name: Use the token
       debug:
         msg: "The token is encrypted, but Ansible can see it now."
@@ -80,6 +88,11 @@
         - Reload Systemd
         - Restart Caddy
 
+    - name: Flush handlers immediately
+      meta: flush_handlers
+      # EXPLANATION: This forces Ansible to run the 'Reload Systemd' 
+      # and 'Restart Caddy' handlers NOW before moving to the next task.
+
     - name: Deploy Forgejo Site Config
       template:
         src: templates/sites/forgejo.j2
@@ -94,7 +107,19 @@
       # EXPLANATION: This is where Forgejo/Podman .container files will live.
       
   handlers:
+    - name: Reload Systemd
+      systemd:
+        daemon_reload: yes
+      # EXPLANATION: This is required whenever you create or modify 
+      # files in /etc/systemd/system/ so systemd notices the changes.
+
+    - name: Restart Caddy
+      service:
+        name: caddy
+        state: restarted
+
     - name: Reload Caddy
       service:
         name: caddy
         state: reloaded
+

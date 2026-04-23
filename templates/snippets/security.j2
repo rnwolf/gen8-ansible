@@ -1,0 +1,10 @@
+# Reusable rate limiting for Git operations
+(rate_limit_git) {
+    rate_limit {
+        zone git_zone {
+            key {remote_host}
+            events 10
+            window 1m
+        }
+    }
+}
