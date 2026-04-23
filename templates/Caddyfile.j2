@@ -1,0 +1,11 @@
+{
+    email {{ admin_email }}
+    order rate_limit before reverse_proxy
+}
+
+# Import all global snippets (reusable blocks)
+import /etc/caddy/snippets/*
+
+# Import all service-specific configurations
+import /etc/caddy/conf.d/*
+

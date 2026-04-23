@@ -1,0 +1,18 @@
+{{ services.forgejo.subdomain }}.{{ public_domain }} {
+    # Import the rate limiting snippet defined in baseline
+    import rate_limit_git
+
+    # Reverse proxy to the Podman container
+    reverse_proxy localhost:{{ services.forgejo.container_port }}
+
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
+        resolvers {{ dns_resolvers | join(' ') }}
+    }
+
+    # Optional: Log to the path Fail2Ban is watching
+    log {
+        output file /var/log/caddy/forgejo.log
+        format json
+    }
+}

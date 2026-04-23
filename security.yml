@@ -1,0 +1,90 @@
+---
+- name: Security Hardening and Active Defense
+  hosts: gen8
+  become: yes
+
+  tasks:
+    - name: Install Security Packages
+      apt:
+        name:
+          - ufw
+          - fail2ban
+        state: present
+        update_cache: yes
+
+    - name: Configure SSH Daemon (Hardening)
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: '^PermitRootLogin', line: 'PermitRootLogin no' }
+        - { regexp: '^PasswordAuthentication', line: 'PasswordAuthentication no' }
+      notify: Restart SSH
+      # EXPLANATION: We assume your public key is already in authorized_keys.
+      # This task ensures that passwords and root access are disabled.
+
+    - name: Configure Firewall (UFW)
+      ufw:
+        state: enabled
+        policy: deny
+        direction: incoming
+
+    - name: Allow Essential Traffic
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - '22'   # Host Management
+        - '80'   # Caddy HTTP
+        - '443'  # Caddy HTTPS
+        - '2222' # Forgejo SSH (Collaborators)
+
+    - name: Create Fail2Ban Local Configuration
+      copy:
+        dest: /etc/fail2ban/jail.local
+        content: |
+          [DEFAULT]
+          bantime  = 1h
+          findtime = 10m
+          maxretry = 5
+
+          [sshd]
+          enabled = true
+          port    = ssh
+          logpath = %(sshd_log)s
+          backend = %(sshd_backend)s
+
+          [caddy-auth]
+          enabled = true
+          port    = http,https
+          filter  = caddy-auth
+          logpath = /var/log/caddy/access.log
+          maxretry = 10
+      notify: Restart Fail2Ban
+      # EXPLANATION: This protects both the host (SSH) and the 
+      # future collaboration web services (Caddy/Forgejo).
+
+    - name: Create Caddy Auth Filter for Fail2Ban
+      copy:
+        dest: /etc/fail2ban/filter.d/caddy-auth.conf
+        content: |
+          [Definition]
+          failregex = ^.*"remote_ip":"<HOST>".*"status":401.*$
+                      ^.*"remote_ip":"<HOST>".*"status":403.*$
+          ignoreregex =
+      # EXPLANATION: This regex looks for 401 (Unauthorized) and 
+      # 403 (Forbidden) errors in Caddy's JSON logs to identify attackers.
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: ssh
+        state: restarted
+
+    - name: Restart Fail2Ban
+      service:
+        name: fail2ban
+        state: restarted
+

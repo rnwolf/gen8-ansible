@@ -1,0 +1,100 @@
+---
+- name: Configure HP MicroServer Gen8 Baseline
+  hosts: gen8
+  become: yes
+  vars:
+    # Variables moved here for reproducibility
+    zfs_pool_name: "tank"
+  vars_files:
+    - vars/secrets.yml
+  tasks:
+    - name: Use the token
+      debug:
+        msg: "The token is encrypted, but Ansible can see it now."
+
+    - name: Expand LVM to use full SSD space
+      shell: |
+        lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+        resize2fs /dev/ubuntu-vg/ubuntu-lv
+      register: lvm_result
+      changed_when: "'already' in lvm_result.stdout == false"
+
+    - name: Install Essential System Packages
+      apt:
+        name:
+          - micro              # Editor
+          - rsync              # Ingest tool
+          - git                # Version control
+          - zfsutils-linux     # 20TB Data Integrity
+          - podman             # Container Engine
+          - buildah            # Image building
+          - slirp4netns        # Rootless networking
+        state: present
+        update_cache: yes
+
+    - name: Add Caddy Official Repository
+      shell: |
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.debian.list' | tee /etc/apt/sources.list.d/caddy-stable.list
+      args:
+        creates: /etc/apt/sources.list.d/caddy-stable.list
+
+    - name: Install Caddy Reverse Proxy
+      apt:
+        name: caddy
+        state: present
+        update_cache: yes
+
+    - name: Create Caddy configuration directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - /etc/caddy/snippets
+        - /etc/caddy/conf.d
+
+    - name: Deploy Global Caddyfile
+      template:
+        src: templates/Caddyfile.j2
+        dest: /etc/caddy/Caddyfile
+      notify: Reload Caddy
+
+    - name: Deploy Reusable Security Snippets
+      template:
+        src: templates/snippets/security.j2
+        dest: /etc/caddy/snippets/security
+      notify: Reload Caddy
+
+    - name: Create Systemd override directory for Caddy
+      file:
+        path: /etc/systemd/system/caddy.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Inject Cloudflare Token into Caddy Environment
+      template:
+        src: templates/caddy_override.conf.j2
+        dest: /etc/systemd/system/caddy.service.d/override.conf
+      notify:
+        - Reload Systemd
+        - Restart Caddy
+
+    - name: Deploy Forgejo Site Config
+      template:
+        src: templates/sites/forgejo.j2
+        dest: /etc/caddy/conf.d/forgejo
+      notify: Reload Caddy
+
+    - name: Prepare Quadlet directory
+      file:
+        path: /etc/containers/systemd
+        state: directory
+        mode: '0755'
+      # EXPLANATION: This is where Forgejo/Podman .container files will live.
+      
+  handlers:
+    - name: Reload Caddy
+      service:
+        name: caddy
+        state: reloaded

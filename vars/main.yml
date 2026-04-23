@@ -1,0 +1,19 @@
+# Network Identity
+lan_domain: "server.lan"
+public_domain: "rnwolf.net"
+admin_email: "admin@rnwolf.net"
+
+# DNS Configuration
+# We use these to tell Caddy which resolvers to trust for the DNS-01 challenge
+dns_resolvers:
+  - "1.1.1.1"
+  - "8.8.8.8"
+
+# Services Configuration
+services:
+  forgejo:
+    subdomain: "git"
+    container_port: 3000
+    ssh_port: 2222
+    data_path: "/tank/forgejo"  # Path on your ZFS pool
+
