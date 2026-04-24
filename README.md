@@ -47,22 +47,52 @@ The HP Gen8 BIOS has a hardcoded limitation: it can only natively boot from Bay 
 2.  Follow the manual ZFS creation steps (See "Destructive Tasks" below).
 3.  Restore data from backup.
 
-## Manual (Destructive) Tasks
-To prevent accidental data loss, the following tasks are **never** automated:
+## Manual (Destructive) Tasks 20TB ZFS Pool Initialization
 
-### Wipe the 20TB disk
+To prevent accidental data loss, the initialization of the data drive is **never automated**. Follow these steps once the OS is installed and the `baseline.yml` playbook has completed.
 
-`wipefs -a /dev/sdb`
+### 1. Identify the Disk
+
+The Gen8 identifies the 20TB Exos usually as `/dev/sdb`, but we will use the **ID** to be safe against device name shifts.
+
+```bash
+ls -l /dev/disk/by-id/ | grep sdb
+
+Output:
+lrwxrwxrwx 1 root root  9 Apr 24 09:03 ata-ST20000NM007D-3DJ103_ZVT64HM8 -> ../../sdb
+lrwxrwxrwx 1 root root 10 Apr 24 09:03 ata-ST20000NM007D-3DJ103_ZVT64HM8-part1 -> ../../sdb1
+
+```
+
+### 2. Wipe the 20TB disk
+
+`sudo wipefs -a /dev/disk/by-id/ata-ST20000NM007D-3DJ103_ZVT64HM8`
 
 
-### Create the pool named 'tank' (a classic ZFS naming convention)
+### 3. Create the pool named 'tank' (a classic ZFS naming convention)
 
-`sudo zpool create -f -o ashift=12 tank /dev/sdb`
+`sudo zpool create -f -o ashift=12 \
+    -O acltype=posixacl -O xattr=sa -O dnodesize=auto \
+    -O compression=lz4 -O atime=off -O canmount=off \
+    tank /dev/disk/by-id/ata-ST20000NM007D-3DJ103_ZVT64HM8
+`
 
-### Enable compression (this is 'free' performance on your Xeon)
+### 4. Create Service-Specific Datasets
 
-`sudo zfs set compression=lz4 tank`
+We do not store data in the root of the pool. We create datasets so we can snapshot them individually.
 
+```bash
+
+# General storage for ingests
+sudo zfs create -o mountpoint=/storage tank/storage
+
+# Dedicated Forgejo data (Git repos)
+sudo zfs create -o mountpoint=/tank/forgejo tank/forgejo
+
+# Set permissions for your user
+sudo chown -R $(whoami):$(whoami) /storage /tank/forgejo
+
+```
 
 # How to deploy publish key to remote Linux server
 
