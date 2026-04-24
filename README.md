@@ -68,14 +68,19 @@ lrwxrwxrwx 1 root root 10 Apr 24 09:03 ata-ST20000NM007D-3DJ103_ZVT64HM8-part1 -
 
 `sudo wipefs -a /dev/disk/by-id/ata-ST20000NM007D-3DJ103_ZVT64HM8`
 
+Troubleshooting 'Device or Resource Busy':
+
+> If wipefs fails, check lsblk for auto-mounted partitions or vgdisplay for legacy LVM volumes. Use vgchange -an <name> to release the lock before wiping.
+
 
 ### 3. Create the pool named 'tank' (a classic ZFS naming convention)
 
-`sudo zpool create -f -o ashift=12 \
+```bash
+sudo zpool create -f -o ashift=12 \
     -O acltype=posixacl -O xattr=sa -O dnodesize=auto \
     -O compression=lz4 -O atime=off -O canmount=off \
     tank /dev/disk/by-id/ata-ST20000NM007D-3DJ103_ZVT64HM8
-`
+```
 
 ### 4. Create Service-Specific Datasets
 
@@ -93,6 +98,24 @@ sudo zfs create -o mountpoint=/tank/forgejo tank/forgejo
 sudo chown -R $(whoami):$(whoami) /storage /tank/forgejo
 
 ```
+
+### 5. Verify ZFS health
+
+```bash
+zpool status
+zfs list
+```
+
+ZFS handles its own mounting by default.
+
+Unlike standard Linux filesystems (EXT4/XFS) that require entries in /etc/fstab, ZFS is "self-mounting." Because we set the mountpoint property during the zfs create command, the ZFS kernel module will automatically mount these every time the Gen8 server boots.
+
+
+To "hide" the root pool and only show the datasets, we run:
+
+`sudo zfs set canmount=off tank`
+
+Usually, we keep the root pool unmounted (canmount=off) to avoid cluttering the root directory, just ensure you don't accidentally save files directly to /tank/ instead of /tank/forgejo/
 
 # How to deploy publish key to remote Linux server
 
