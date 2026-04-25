@@ -1,0 +1,31 @@
+[Unit]
+Description=Forgejo Git Service
+After=network-online.target
+RequiresMountsFor={{ services.forgejo.zfs_path }}
+
+[Container]
+Image={{ services.forgejo.image }}
+ContainerName=forgejo
+
+Environment=USER_UID=1000
+Environment=USER_GID=1000
+Environment=FORGEJO__database__DB_TYPE=sqlite3
+Environment=FORGEJO__database__PATH=/var/lib/forgejo/forgejo.db
+
+Volume={{ services.forgejo.ssd_path }}:/var/lib/forgejo
+Volume={{ services.forgejo.zfs_path }}:/data
+
+# Use the standard podman bridge
+Network=podman
+
+# Bridge mode requires port publishing
+PublishPort={{ services.forgejo.container_port }}:3000
+PublishPort={{ services.forgejo.ssh_port }}:22
+
+[Service]
+# These are Systemd-specific keys
+Restart=always
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target

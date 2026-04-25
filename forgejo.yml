@@ -1,0 +1,81 @@
+---
+- name: Deploy Forgejo via Quadlets
+  hosts: gen8
+  become: yes
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml
+
+  tasks:
+    - name: Verify Split-DNS Configuration
+      shell: "getent hosts {{ services.forgejo.subdomain }}.{{ public_domain }}"
+      register: dns_check
+      failed_when: ansible_host not in dns_check.stdout
+      changed_when: false
+      # EXPLANATION: This ensures your Unifi UX7 'A' record is active 
+      # and pointing to the Gen8 (192.168.0.50) before we proceed.
+
+    - name: Ensure Storage paths exist for Forgejo
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: '0755'
+      loop:
+        - "{{ services.forgejo.ssd_path }}"
+        - "{{ services.forgejo.zfs_path }}"
+    
+    - name: Pre-pull Forgejo v15 LTS image
+      command: "podman pull {{ services.forgejo.image }}"
+      register: pull_result
+      # This gives it 15 minutes to pull—plenty for a 20TB server
+      async: 900 
+      poll: 10
+
+    - name: Deploy Forgejo Quadlet
+      template:
+        src: templates/forgejo.container.j2
+        dest: /etc/containers/systemd/forgejo.container
+      notify: 
+        - Reload Systemd
+
+    - name: Force Systemd to recognize the new Quadlet
+      meta: flush_handlers
+
+    - name: Ensure Forgejo service is running
+      systemd:
+        name: forgejo
+        state: started
+        enabled: yes        
+
+    - name: Deploy Caddy Site Config for Forgejo
+      template:
+        src: templates/sites/forgejo.j2
+        dest: /etc/caddy/conf.d/forgejo
+      notify: Reload Caddy
+
+    - name: Create Forgejo Backup Cron Job (SSD to ZFS)
+      ansible.builtin.cron:
+        name: "Forgejo SSD to ZFS Backup"
+        minute: "0"
+        hour: "2"
+        job: "/usr/bin/rsync -av --delete {{ services.forgejo.ssd_path }} {{ services.forgejo.zfs_path }}/ssd_backups/"
+      # EXPLANATION: Every night at 2:00 AM, the SSD 'hot' data is 
+      # mirrored to the 20TB drive for safety.
+
+  handlers:
+    - name: Reload Systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Start Forgejo
+      systemd:
+        name: forgejo.service
+        state: started
+        enabled: yes
+
+    - name: Reload Caddy
+      service:
+        name: caddy
+        state: reloaded

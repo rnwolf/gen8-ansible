@@ -15,5 +15,11 @@ services:
     subdomain: "git"
     container_port: 3000
     ssh_port: 2222
-    data_path: "/tank/forgejo"  # Path on your ZFS pool
+    # The "Hot" path for SQLite and app files
+    ssd_path: "/var/lib/forgejo"
+    # The "Mass" path for the actual Git repos
+    zfs_path: "/tank/forgejo"
+    # The version of forgejo we want to install. This will install minor updates and patches
+    image: "codeberg.org/forgejo/forgejo:15"
+
 

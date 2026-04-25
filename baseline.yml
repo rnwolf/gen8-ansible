@@ -53,18 +53,23 @@
         state: present
         update_cache: yes
 
-    - name: Add Caddy Official Repository
-      shell: |
-        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-        curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.debian.list' | tee /etc/apt/sources.list.d/caddy-stable.list
-      args:
-        creates: /etc/apt/sources.list.d/caddy-stable.list
+    - name: Apply robust Netplan configuration to avoid waiting for plugged in cables on both ethernet ports and update PPPoE MTU because we are on broadband.
+      template:
+        src: templates/netplan.yaml.j2
+        dest: /etc/netplan/00-installer-config.yaml
+        owner: root
+        group: root
+        mode: '0600'
+      notify: Apply Netplan
 
-    - name: Install Caddy Reverse Proxy
-      apt:
-        name: caddy
-        state: present
-        update_cache: yes
+    - name: Download Caddy with Cloudflare plugin
+      get_url:
+        url: "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com/caddy-dns/cloudflare"
+        dest: /usr/bin/caddy
+        mode: '0755'
+        force: yes
+      notify: Reload Caddy
+      # This pulls a binary directly from Caddy's build server that specifically includes the 'cloudflare' module.
 
     - name: Create Caddy configuration directories
       file:
@@ -120,6 +125,10 @@
       # EXPLANATION: This is where Forgejo/Podman .container files will live.
       
   handlers:
+    - name: Apply Netplan
+      become: yes
+      command: netplan apply
+
     - name: Reload Systemd
       systemd:
         daemon_reload: yes

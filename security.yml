@@ -24,6 +24,12 @@
       # EXPLANATION: We assume your public key is already in authorized_keys.
       # This task ensures that passwords and root access are disabled.
 
+      # We need to to ensure that podman containers running in a bridged network configuration.
+      # The only way to ensure the Bridge DNS/SMTP works form the containers
+    - name: Allow Podman Routing to any physical interface
+      command: ufw route allow in on podman0 out on any
+      # 'out on any' covers eno1 and eno2
+
     # Specify the policy for UFW before activating.
     - name: Allow Essential Traffic
       ufw:
@@ -35,8 +41,9 @@
         - '80'   # Caddy HTTP
         - '443'  # Caddy HTTPS
         - '2222' # Forgejo SSH (Collaborators)
-    
-    - name: Configure Firewall (UFW)
+
+      # Global policy
+    - name: Enable UFW with Default Deny
       ufw:
         state: enabled
         policy: deny

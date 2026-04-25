@@ -1,9 +1,19 @@
 # HP ProLiant Gen8 Home Server Automation
 
 ## Project Purpose
+
 A reproducible, high-security Ubuntu 26.04 environment for large-scale data ingest and collaborative Git hosting (Forgejo) . 
 
+## Domain and DNS Logic (Split-DNS)
+
+We use a "Split-DNS" strategy to ensure high-security internal access:
+
+1. **Internal:** The Unifi UX7 Gateway has a Static 'A' record for `git.rnwolf.net` -> `192.168.0.50`.
+2. **External:** Cloudflare DNS handles the public records (which can remain unpointed or pointed to a VPN gateway).
+3. **Certificates:** Caddy uses the `DNS-01` challenge via Cloudflare API. This allows the Gen8 to prove ownership of `rnwolf.net` and get a valid SSL certificate without the server ever being exposed to the public internet (no Port 80/443 open on Unifi).
+
 ## Container Philosophy
+
 We use **Podman** over Docker for better integration with the Linux kernel and UFW. 
 Services are defined using **Quadlets** (systemd-native container units) located in `/etc/containers/systemd/`. 
 The reverse proxy is **Caddy**, chosen for its native TLS handling and simpler rate-limiting syntax compared to Nginx.
@@ -155,3 +165,24 @@ To restore the server from a blank SSD:
 ## Playbook Roles
 - **baseline.yml**: Handles hardware-specific fixes (LVM) and the "Podman + Caddy" stack.
 - **security.yml**: Enforces SSH-key-only access and configures the UFW firewall to protect the ZFS data.
+- **forgejo.yml**: Local github like service.
+
+
+## Forgejo
+
+By using Quadlets, Forgejo will be managed by systemd. This means if the server reboots, systemd will ensure the container starts after the ZFS pool is mounted.
+
+`systemctl status forgejo`
+
+A "Pre-flight" check to verify your Unifi DNS configuration. If git.rnwolf.net doesn't resolve to your Gen8 IP, the playbook will warn you before deploying.
+
+Caddy is now providing a "Green Lock" HTTPS experience on your local network. No more "Insecure Connection" browser warnings.
+
+Forgejo data is split into two paths with daily backup:
+
+ - SSD (/var/lib/forgejo): Database, sessions, and cache (The "Engine").
+ - ZFS (/tank/forgejo): The actual Git repositories and large attachments (The "Cargo").
+ - Data Split: Forgejo uses a hybrid storage model. The SQLite DB lives on the SSD for performance (/var/lib/forgejo). Repositories live on ZFS (/tank/forgejo). An automated rsync cron job backs up the SSD portion to the ZFS pool nightly at 02:00.
+
+
+
