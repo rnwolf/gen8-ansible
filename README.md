@@ -2,7 +2,7 @@
 
 ## Project Purpose
 
-A reproducible, high-security Ubuntu 26.04 environment for large-scale data ingest and collaborative Git hosting (Forgejo) . 
+A reproducible, high-security Ubuntu 26.04 environment for large-scale data ingest and collaborative Git hosting (Forgejo) .
 
 ## Domain and DNS Logic (Split-DNS)
 
@@ -14,8 +14,8 @@ We use a "Split-DNS" strategy to ensure high-security internal access:
 
 ## Container Philosophy
 
-We use **Podman** over Docker for better integration with the Linux kernel and UFW. 
-Services are defined using **Quadlets** (systemd-native container units) located in `/etc/containers/systemd/`. 
+We use **Podman** over Docker for better integration with the Linux kernel and UFW.
+Services are defined using **Quadlets** (systemd-native container units) located in `/etc/containers/systemd/`.
 The reverse proxy is **Caddy**, chosen for its native TLS handling and simpler rate-limiting syntax compared to Nginx.
 
 The Podman "Storage Graph" (where container layers live) should ideally stay on the SSD for speed, while your Forgejo volumes (the actual git data) should be mapped to your ZFS pool (/tank/gitea) for safety and snapshots.
@@ -184,5 +184,27 @@ Forgejo data is split into two paths with daily backup:
  - ZFS (/tank/forgejo): The actual Git repositories and large attachments (The "Cargo").
  - Data Split: Forgejo uses a hybrid storage model. The SQLite DB lives on the SSD for performance (/var/lib/forgejo). Repositories live on ZFS (/tank/forgejo). An automated rsync cron job backs up the SSD portion to the ZFS pool nightly at 02:00.
 
+Note on First-Time Setup:
+When you first hit the webpage, Forgejo will ask you to complete the installation.
 
+### First time Forgejo.
 
+When you open browser with domain https://git.rnwolf.net
+
+Fill in the following for Initial configuration:
+
+    Database Type: Choose SQLite3.
+    Database Path: Ensure it says /var/lib/forgejo/forgejo.db (this matches our internal container path).
+    Repository Root Path: /data/git/repositories (this is inside our ZFS-backed mount).
+    SSH Port: Set this to 22 (matching our published port).
+    HTTP Port: 3000.
+    Server Domain / Base URL: git.rnwolf.net.
+    User to run as: git  (Note! That the git username only exists inside the container — the host OS has no such user.)
+
+#### Email settings
+
+    User Fastmail app settings.
+
+#### Admin User
+
+    Select user as required.

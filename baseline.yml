@@ -37,7 +37,7 @@
       loop:
         - /tank/forgejo
         - /storage
-      # EXPLANATION: ZFS mounts the drive, but Ansible ensures the 
+      # EXPLANATION: ZFS mounts the drive, but Ansible ensures the
       # Linux permissions allow our user to use them.
 
     - name: Install Essential System Packages
@@ -50,6 +50,16 @@
           - podman             # Container Engine
           - buildah            # Image building
           - slirp4netns        # Rootless networking
+        state: present
+        update_cache: yes
+
+    - name: Install essential system diagnostic tools
+      apt:
+        name:
+          - smartmontools
+          - nvme-cli
+          - htop
+          - iotop
         state: present
         update_cache: yes
 
@@ -80,11 +90,65 @@
         - /etc/caddy/snippets
         - /etc/caddy/conf.d
 
+    - name: Deploy Caddy systemd service unit
+      copy:
+        dest: /etc/systemd/system/caddy.service
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=Caddy
+          Documentation=https://caddyserver.com/docs/
+          After=network.target network-online.target
+          Requires=network-online.target
+
+          [Service]
+          Type=notify
+          User=caddy
+          Group=caddy
+          ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+          ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
+          TimeoutStopSec=5s
+          LimitNOFILE=1048576
+          PrivateTmp=true
+          ProtectSystem=full
+          AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+
+          [Install]
+          WantedBy=multi-user.target
+      notify: Reload Systemd
+
+    - name: Create caddy system user
+      user:
+        name: caddy
+        system: yes
+        shell: /sbin/nologin
+        home: /var/lib/caddy
+        create_home: yes
+
+    - name: Create Caddy log directory
+      file:
+        path: /var/log/caddy
+        state: directory
+        owner: caddy
+        group: caddy
+        mode: '0755'
+
+    - name: Enable and start Caddy service
+      systemd:
+        name: caddy
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
     - name: Deploy Global Caddyfile
       template:
         src: templates/Caddyfile.j2
         dest: /etc/caddy/Caddyfile
       notify: Reload Caddy
+
+    - name: Format Caddyfile
+      command: caddy fmt --overwrite /etc/caddy/Caddyfile
+      changed_when: false
 
     - name: Deploy Reusable Security Snippets
       template:
@@ -108,14 +172,8 @@
 
     - name: Flush handlers immediately
       meta: flush_handlers
-      # EXPLANATION: This forces Ansible to run the 'Reload Systemd' 
+      # EXPLANATION: This forces Ansible to run the 'Reload Systemd'
       # and 'Restart Caddy' handlers NOW before moving to the next task.
-
-    - name: Deploy Forgejo Site Config
-      template:
-        src: templates/sites/forgejo.j2
-        dest: /etc/caddy/conf.d/forgejo
-      notify: Reload Caddy
 
     - name: Prepare Quadlet directory
       file:
@@ -123,7 +181,7 @@
         state: directory
         mode: '0755'
       # EXPLANATION: This is where Forgejo/Podman .container files will live.
-      
+
   handlers:
     - name: Apply Netplan
       become: yes
@@ -132,7 +190,7 @@
     - name: Reload Systemd
       systemd:
         daemon_reload: yes
-      # EXPLANATION: This is required whenever you create or modify 
+      # EXPLANATION: This is required whenever you create or modify
       # files in /etc/systemd/system/ so systemd notices the changes.
 
     - name: Restart Caddy
@@ -140,8 +198,13 @@
         name: caddy
         state: restarted
 
-    - name: Reload Caddy
-      service:
-        name: caddy
-        state: reloaded
+    # - name: Reload Caddy
+    #   service:
+    #     name: caddy
+    #     state: reloaded
 
+    - name: Reload Caddy
+      command: >
+        systemctl reload-or-restart caddy
+      async: 30
+      poll: 5
