@@ -21,3 +21,5 @@ services:
     zfs_path: "/tank/forgejo"
     # The version of forgejo we want to install. This will install minor updates and patches
     image: "codeberg.org/forgejo/forgejo:15"
+  vykar:
+    image: "ghcr.io/borgbase/vykar:latest"

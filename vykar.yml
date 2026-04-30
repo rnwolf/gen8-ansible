@@ -1,0 +1,64 @@
+---
+- name: Deploy Vykar Backup Service
+  hosts: gen8
+  become: yes
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml
+
+  tasks:
+    - name: Debug services fully
+      debug:
+        var: services
+
+    - name: Debug vykar specifically
+      debug:
+        var: services.vykar
+
+    - name: Ensure ZFS dataset exists for Vykar backups
+      community.general.zfs:
+        name: "{{ services.vykar.zfs_dataset }}"
+        state: present
+        extra_zfs_properties:
+          mountpoint: "{{ services.vykar.zfs_path }}"  # ← moved here
+          compression: lz4
+          atime: "off" # Improves performance for backup chunks
+
+    - name: Ensure Storage paths exist for Vykar
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "1000"
+        group: "1000"
+        mode: '0755'
+      loop:
+        - "{{ services.vykar.ssd_path }}"
+        - "{{ services.vykar.zfs_path }}"
+
+    - name: Fix permissions on ZFS mount
+      file:
+        path: "{{ services.vykar.zfs_path }}"
+        state: directory
+        owner: 1000
+        group: 1000
+        mode: '0750'
+
+    - name: Deploy Vykar Quadlet
+      template:
+        src: templates/vykar.container.j2
+        dest: /etc/containers/systemd/vykar.container
+      notify: Reload Systemd
+
+    - name: Flush handlers
+      meta: flush_handlers
+
+    - name: Ensure Vykar service is running
+      systemd:
+        name: vykar
+        state: started
+        enabled: yes
+
+  handlers:
+    - name: Reload Systemd
+      systemd:
+        daemon_reload: yes
