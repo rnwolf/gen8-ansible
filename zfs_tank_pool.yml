@@ -1,0 +1,92 @@
+---
+- name: Managed ZFS Infrastructure
+  hosts: all
+  become: true
+  # This playbook manages ZFS pools and datasets for all services, ensuring consistent configuration and permissions.
+  # It is designed to be idempotent and can be safely re-run to maintain the desired state of the ZFS infrastructure.
+  # Variables such as pool name, device ID, and dataset paths are expected to be defined in the included vars files.
+  # These are specific to the gen8 server and are this found in ./host_vars/gen8.yml
+
+  tasks:
+    - name: Ensure ZFS utilities are installed
+      ansible.builtin.package:
+        name: zfsutils-linux
+        state: present
+
+    # --- POOL MANAGEMENT ---
+
+    - name: Check if pool '{{ pool_name }}' is already active
+      ansible.builtin.command: "zpool list {{ pool_name }}"
+      register: zpool_active
+      failed_when: false
+      changed_when: false
+
+    - name: Check if pool '{{ pool_name }}' is available for import
+      ansible.builtin.command: "zpool import"
+      register: zpool_importable
+      when: zpool_active.rc != 0
+      changed_when: false
+      failed_when: false
+
+    - name: Import existing ZFS pool
+      ansible.builtin.command: "zpool import -f {{ pool_name }}"
+      when:
+        - zpool_active.rc != 0
+        - pool_name in zpool_importable.stdout
+
+    - name: Create ZFS pool if it does not exist
+      ansible.builtin.command: >
+        zpool create -f -o ashift=12
+        -O acltype=posixacl -O xattr=sa -O dnodesize=auto
+        -O compression=lz4 -O atime=off -O canmount=off
+        {{ pool_name }} {{ device_id }}
+      when:
+        - zpool_active.rc != 0
+        - pool_name not in zpool_importable.stdout
+
+    # --- DATASET MANAGEMENT ---
+
+    - name: Ensure global storage dataset exists
+      community.general.zfs:
+        name: "{{ global_storage }}"
+        state: present
+        extra_zfs_properties:
+          mountpoint: "{{ global_storage_path }}"
+
+    - name: Ensure service datasets exist
+      community.general.zfs:
+        name: "{{ item.value.zfs_dataset }}"
+        state: present
+        extra_zfs_properties:
+          mountpoint: "{{ item.value.zfs_path }}"
+      loop: "{{ services | dict2items }}"
+      when: item.value.zfs_dataset is defined
+
+    # --- PERMISSIONS MANAGEMENT ---
+
+    - name: Set ownership for global storage
+      ansible.builtin.file:
+        path: "{{ global_storage_path }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        state: directory
+        mode: '0755'
+
+    - name: Set ownership for service datasets
+      ansible.builtin.file:
+        path: "{{ item.value.zfs_path }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ services | dict2items }}"
+      when: item.value.zfs_path is defined
+
+    - name: Ensure ZFS services are enabled for persistence
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+      loop:
+        - zfs-import-cache
+        - zfs-mount

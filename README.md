@@ -92,7 +92,7 @@ sudo zpool create -f -o ashift=12 \
     tank /dev/disk/by-id/ata-ST20000NM007D-3DJ103_ZVT64HM8
 ```
 
-### 4. Create Service-Specific Datasets
+### 4. Manually Create Service-Specific Datasets
 
 We do not store data in the root of the pool. We create datasets so we can snapshot them individually.
 
@@ -104,8 +104,11 @@ sudo zfs create -o mountpoint=/storage tank/storage
 # Dedicated Forgejo data (Git repos)
 sudo zfs create -o mountpoint=/tank/forgejo tank/forgejo
 
+# Dedicated backup data (Vykar repos)
+sudo zfs create -o mountpoint=/tank/vykar-backups tank/vykar-backups
+
 # Set permissions for your user
-sudo chown -R $(whoami):$(whoami) /storage /tank/forgejo
+sudo chown -R $(whoami):$(whoami) /storage /tank/forgejo /tank/vykar-backups
 
 ```
 

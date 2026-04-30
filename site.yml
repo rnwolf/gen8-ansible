@@ -1,3 +1,4 @@
 ---
 - import_playbook: baseline.yml   # Contains ZFS, LVM, and essential tools
 - import_playbook: security.yml   # Contains Firewall and SSH Hardening
+- import_playbook: zfs_tank_pool.yml  # Manages ZFS pool and global datasets

@@ -27,7 +27,7 @@
       register: lvm_result
       changed_when: "'already' in lvm_result.stdout == false"
 
-    - name: Ensure ZFS dataset permissions are correct
+    - name: Ensure SSD mount point exists
       file:
         path: "{{ item }}"
         state: directory
@@ -35,7 +35,6 @@
         group: "{{ ansible_user }}"
         mode: '0755'
       loop:
-        - /tank/forgejo
         - /storage
       # EXPLANATION: ZFS mounts the drive, but Ansible ensures the
       # Linux permissions allow our user to use them.
