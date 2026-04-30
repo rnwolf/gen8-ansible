@@ -1,0 +1,25 @@
+[Unit]
+Description=Vykar backup REST server
+After=network-online.target zfs-mount.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vykar
+Group=vykar
+EnvironmentFile={{ services.vykar.ssd_path }}/vykar-server.env
+ExecStart=/usr/local/bin/vykar-server \
+    --data-dir {{ services.vykar.zfs_path }} \
+    --listen 127.0.0.1:8585 \
+    --append-only \
+    --log-format json
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths={{ services.vykar.zfs_path }}
+
+[Install]
+WantedBy=multi-user.target

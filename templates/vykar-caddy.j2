@@ -1,0 +1,18 @@
+{{ services.vykar.domain }} {
+
+    request_body {
+        max_size 600MB
+    }
+
+    reverse_proxy 127.0.0.1:8585
+
+    tls {
+        dns cloudflare {env.CF_API_TOKEN}
+        resolvers 1.1.1.1
+    }
+
+    log {
+        output file /var/log/caddy/vykar.log
+        format json
+    }
+}
