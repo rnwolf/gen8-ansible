@@ -1,0 +1,7 @@
+---
+caddy_binary_url: "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com/caddy-dns/cloudflare"
+caddy_binary_dest: /usr/bin/caddy
+caddy_config_dir: /etc/caddy
+caddy_log_dir: /var/log/caddy
+caddy_user: caddy
+caddy_group: caddy

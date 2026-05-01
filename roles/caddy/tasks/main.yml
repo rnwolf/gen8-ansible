@@ -1,0 +1,100 @@
+---
+- name: Create caddy system user
+  user:
+    name: "{{ caddy_user }}"
+    system: yes
+    shell: /sbin/nologin
+    home: /var/lib/caddy
+    create_home: yes
+
+- name: Create Caddy log directory
+  file:
+    path: "{{ caddy_log_dir }}"
+    state: directory
+    owner: "{{ caddy_user }}"
+    group: "{{ caddy_group }}"
+    mode: '0755'
+
+- name: Create Caddy configuration directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ caddy_config_dir }}/snippets"
+    - "{{ caddy_config_dir }}/conf.d"
+
+- name: Download Caddy with Cloudflare plugin
+  get_url:
+    url: "{{ caddy_binary_url }}"
+    dest: "{{ caddy_binary_dest }}"
+    mode: '0755'
+  notify: Restart Caddy
+
+- name: Deploy Caddy systemd service unit
+  copy:
+    dest: /etc/systemd/system/caddy.service
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=Caddy
+      Documentation=https://caddyserver.com/docs/
+      After=network.target network-online.target
+      Requires=network-online.target
+
+      [Service]
+      Type=notify
+      User={{ caddy_user }}
+      Group={{ caddy_group }}
+      ExecStart={{ caddy_binary_dest }} run --environ --config {{ caddy_config_dir }}/Caddyfile
+      ExecReload={{ caddy_binary_dest }} reload --config {{ caddy_config_dir }}/Caddyfile --force
+      TimeoutStopSec=5s
+      LimitNOFILE=1048576
+      PrivateTmp=true
+      ProtectSystem=full
+      AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: Reload Systemd
+
+- name: Create Systemd override directory for Caddy
+  file:
+    path: /etc/systemd/system/caddy.service.d
+    state: directory
+    mode: '0755'
+
+- name: Inject Cloudflare Token into Caddy environment
+  template:
+    src: caddy_override.conf.j2
+    dest: /etc/systemd/system/caddy.service.d/override.conf
+    mode: '0600'
+  notify:
+    - Reload Systemd
+    - Restart Caddy
+
+- name: Flush handlers (ensure daemon-reload before service start)
+  meta: flush_handlers
+
+- name: Enable and start Caddy service
+  systemd:
+    name: caddy
+    enabled: yes
+    state: started
+    daemon_reload: yes
+
+- name: Deploy Global Caddyfile
+  template:
+    src: Caddyfile.j2
+    dest: "{{ caddy_config_dir }}/Caddyfile"
+  notify: Reload Caddy
+
+- name: Format Caddyfile
+  command: caddy fmt --overwrite {{ caddy_config_dir }}/Caddyfile
+  changed_when: false
+
+- name: Deploy Reusable Security Snippets
+  template:
+    src: snippets/security.j2
+    dest: "{{ caddy_config_dir }}/snippets/security"
+  notify: Reload Caddy

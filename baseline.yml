@@ -67,107 +67,9 @@
         mode: '0600'
       notify: Apply Netplan
 
-    - name: Download Caddy with Cloudflare plugin
-      get_url:
-        url: "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com/caddy-dns/cloudflare"
-        dest: /usr/bin/caddy
-        mode: '0755'
-      notify: Reload Caddy
-      # This pulls a binary directly from Caddy's build server that specifically includes the 'cloudflare' module.
-
-    - name: Create Caddy configuration directories
-      file:
-        path: "{{ item }}"
-        state: directory
-        mode: '0755'
-      loop:
-        - /etc/caddy/snippets
-        - /etc/caddy/conf.d
-
-    - name: Create caddy system user
-      user:
+    - name: Configure Caddy reverse proxy
+      import_role:
         name: caddy
-        system: yes
-        shell: /sbin/nologin
-        home: /var/lib/caddy
-        create_home: yes
-
-    - name: Create Caddy log directory
-      file:
-        path: /var/log/caddy
-        state: directory
-        owner: caddy
-        group: caddy
-        mode: '0755'
-
-    - name: Deploy Caddy systemd service unit
-      copy:
-        dest: /etc/systemd/system/caddy.service
-        mode: '0644'
-        content: |
-          [Unit]
-          Description=Caddy
-          Documentation=https://caddyserver.com/docs/
-          After=network.target network-online.target
-          Requires=network-online.target
-
-          [Service]
-          Type=notify
-          User=caddy
-          Group=caddy
-          ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
-          ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
-          TimeoutStopSec=5s
-          LimitNOFILE=1048576
-          PrivateTmp=true
-          ProtectSystem=full
-          AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-
-          [Install]
-          WantedBy=multi-user.target
-      notify: Reload Systemd
-
-    - name: Enable and start Caddy service
-      systemd:
-        name: caddy
-        enabled: yes
-        state: started
-        daemon_reload: yes
-
-    - name: Deploy Global Caddyfile
-      template:
-        src: templates/Caddyfile.j2
-        dest: /etc/caddy/Caddyfile
-      notify: Reload Caddy
-
-    - name: Format Caddyfile
-      command: caddy fmt --overwrite /etc/caddy/Caddyfile
-      changed_when: false
-
-    - name: Deploy Reusable Security Snippets
-      template:
-        src: templates/snippets/security.j2
-        dest: /etc/caddy/snippets/security
-      notify: Reload Caddy
-
-    - name: Create Systemd override directory for Caddy
-      file:
-        path: /etc/systemd/system/caddy.service.d
-        state: directory
-        mode: '0755'
-
-    - name: Inject Cloudflare Token into Caddy Environment
-      template:
-        src: templates/caddy_override.conf.j2
-        dest: /etc/systemd/system/caddy.service.d/override.conf
-      notify:
-        - Reload Systemd
-        - Restart Caddy
-
-    - name: Flush handlers immediately
-      meta: flush_handlers
-      # EXPLANATION: This forces Ansible to run the 'Reload Systemd'
-      # and 'Restart Caddy' handlers NOW before moving to the next task.
 
     - name: Prepare Quadlet directory
       file:
@@ -175,6 +77,8 @@
         state: directory
         mode: '0755'
       # EXPLANATION: This is where Forgejo/Podman .container files will live.
+
+
 
   handlers:
     - name: Apply Netplan
@@ -186,19 +90,3 @@
         daemon_reload: yes
       # EXPLANATION: This is required whenever you create or modify
       # files in /etc/systemd/system/ so systemd notices the changes.
-
-    - name: Restart Caddy
-      service:
-        name: caddy
-        state: restarted
-
-    # - name: Reload Caddy
-    #   service:
-    #     name: caddy
-    #     state: reloaded
-
-    - name: Reload Caddy
-      command: >
-        systemctl reload-or-restart caddy
-      async: 30
-      poll: 5
