@@ -34,16 +34,6 @@
         group: vykar
         mode: '0750'
 
-    - name: Ensure Caddy log file exists for Vykar
-      file:
-        path: /var/log/caddy/vykar.log
-        state: touch
-        owner: caddy
-        group: caddy
-        mode: '0640'
-        modification_time: preserve
-        access_time: preserve
-
     # --- BINARY ---
 
     - name: Get latest Vykar release info from GitHub
@@ -58,9 +48,9 @@
       set_fact:
         vykar_download_url: >-
           {{ vykar_release.json.assets
-            | selectattr('name', 'match', '.*x86_64-unknown-linux-gnu.*')
-            | map(attribute='browser_download_url')
-            | first }}
+             | selectattr('name', 'match', '.*x86_64-unknown-linux-gnu.*')
+             | map(attribute='browser_download_url')
+             | first }}
         vykar_version: "{{ vykar_release.json.tag_name }}"
 
     - name: Download and extract Vykar tarball
@@ -119,6 +109,16 @@
 
     # --- CADDY ---
 
+    - name: Ensure Caddy log file exists for Vykar
+      file:
+        path: /var/log/caddy/vykar.log
+        state: touch
+        owner: caddy
+        group: caddy
+        mode: '0640'
+        modification_time: preserve
+        access_time: preserve
+
     - name: Deploy Vykar Caddy config
       template:
         src: templates/vykar-caddy.j2
@@ -133,7 +133,6 @@
       changed_when: false
       environment:
         CF_API_TOKEN: "{{ vault_cloudflare_token }}"
-
 
   handlers:
 

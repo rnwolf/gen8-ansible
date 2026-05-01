@@ -1,6 +1,6 @@
 ---
 - name: Managed ZFS Infrastructure
-  hosts: all
+  hosts: gen8
   become: true
   # This playbook manages ZFS pools and datasets for all services, ensuring consistent configuration and permissions.
   # It is designed to be idempotent and can be safely re-run to maintain the desired state of the ZFS infrastructure.

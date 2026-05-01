@@ -24,11 +24,17 @@
       # EXPLANATION: We assume your public key is already in authorized_keys.
       # This task ensures that passwords and root access are disabled.
 
-      # We need to to ensure that podman containers running in a bridged network configuration.
+      # We need to to ensure that podman containers running in a bridged network configuration can get out.
       # The only way to ensure the Bridge DNS/SMTP works form the containers
+    - name: Check current UFW status
+      command: ufw status verbose
+      register: ufw_status
+      changed_when: false
+
     - name: Allow Podman Routing to any physical interface
       command: ufw route allow in on podman0 out on any
-      # 'out on any' covers eno1 and eno2
+      when: "'podman0' not in ufw_status.stdout"
+      changed_when: true
 
     # Specify the policy for UFW before activating.
     - name: Allow Essential Traffic
@@ -71,7 +77,7 @@
           logpath = /var/log/caddy/access.log
           maxretry = 10
       notify: Restart Fail2Ban
-      # EXPLANATION: This protects both the host (SSH) and the 
+      # EXPLANATION: This protects both the host (SSH) and the
       # future collaboration web services (Caddy/Forgejo).
 
     - name: Create Caddy Auth Filter for Fail2Ban
@@ -82,7 +88,7 @@
           failregex = ^.*"remote_ip":"<HOST>".*"status":401.*$
                       ^.*"remote_ip":"<HOST>".*"status":403.*$
           ignoreregex =
-      # EXPLANATION: This regex looks for 401 (Unauthorized) and 
+      # EXPLANATION: This regex looks for 401 (Unauthorized) and
       # 403 (Forbidden) errors in Caddy's JSON logs to identify attackers.
 
   handlers:
@@ -95,4 +101,3 @@
       service:
         name: fail2ban
         state: restarted
-

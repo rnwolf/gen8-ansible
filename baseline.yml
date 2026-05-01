@@ -16,10 +16,6 @@
         mode: '0440'
         validate: '/usr/sbin/visudo -cf %s'
 
-    - name: Use the token
-      debug:
-        msg: "The token is encrypted, but Ansible can see it now."
-
     - name: Expand LVM to use full SSD space
       shell: |
         lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
@@ -76,7 +72,6 @@
         url: "https://caddyserver.com/api/download?os=linux&arch=amd64&p=github.com/caddy-dns/cloudflare"
         dest: /usr/bin/caddy
         mode: '0755'
-        force: yes
       notify: Reload Caddy
       # This pulls a binary directly from Caddy's build server that specifically includes the 'cloudflare' module.
 
@@ -88,6 +83,22 @@
       loop:
         - /etc/caddy/snippets
         - /etc/caddy/conf.d
+
+    - name: Create caddy system user
+      user:
+        name: caddy
+        system: yes
+        shell: /sbin/nologin
+        home: /var/lib/caddy
+        create_home: yes
+
+    - name: Create Caddy log directory
+      file:
+        path: /var/log/caddy
+        state: directory
+        owner: caddy
+        group: caddy
+        mode: '0755'
 
     - name: Deploy Caddy systemd service unit
       copy:
@@ -115,22 +126,6 @@
           [Install]
           WantedBy=multi-user.target
       notify: Reload Systemd
-
-    - name: Create caddy system user
-      user:
-        name: caddy
-        system: yes
-        shell: /sbin/nologin
-        home: /var/lib/caddy
-        create_home: yes
-
-    - name: Create Caddy log directory
-      file:
-        path: /var/log/caddy
-        state: directory
-        owner: caddy
-        group: caddy
-        mode: '0755'
 
     - name: Enable and start Caddy service
       systemd:
