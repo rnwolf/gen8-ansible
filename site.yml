@@ -1,4 +1,14 @@
 ---
-- import_playbook: baseline.yml   # Contains ZFS, LVM, and essential tools
-- import_playbook: security.yml   # Contains Firewall and SSH Hardening
-- import_playbook: zfs_tank_pool.yml  # Manages ZFS pool and global datasets
+- name: Configure HP Gen8 Home Server
+  hosts: gen8
+  become: yes
+  vars_files:
+    - vars/main.yml
+    - vars/secrets.yml
+  roles:
+    - { role: common,   tags: ['common',   'infra'] }
+    - { role: security, tags: ['security', 'infra'] }
+    - { role: caddy,    tags: ['caddy',    'infra'] }
+    - { role: zfs,      tags: ['zfs',      'infra'] }
+    - { role: forgejo,  tags: ['forgejo',  'services'] }
+    - { role: vykar,    tags: ['vykar',    'services'] }

@@ -1,0 +1,75 @@
+---
+- name: Install security packages
+  apt:
+    name:
+      - ufw
+      - fail2ban
+    state: present
+    update_cache: yes
+
+- name: Configure SSH daemon hardening
+  lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  loop:
+    - { regexp: '^PermitRootLogin', line: 'PermitRootLogin no' }
+    - { regexp: '^PasswordAuthentication', line: 'PasswordAuthentication no' }
+  notify: Restart SSH
+
+- name: Check current UFW routing rules
+  command: ufw status verbose
+  register: ufw_status
+  changed_when: false
+
+- name: Allow Podman routing to any physical interface
+  command: ufw route allow in on podman0 out on any
+  when: "'podman0' not in ufw_status.stdout"
+  changed_when: true
+
+- name: Allow essential TCP traffic
+  ufw:
+    rule: allow
+    port: "{{ item }}"
+    proto: tcp
+  loop: "{{ ufw_tcp_ports }}"
+
+- name: Enable UFW with default deny incoming
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Deploy Fail2Ban local configuration
+  copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      [DEFAULT]
+      bantime = {{ fail2ban_bantime }}
+      findtime = {{ fail2ban_findtime }}
+      maxretry = {{ fail2ban_maxretry }}
+
+      [sshd]
+      enabled = true
+      port = ssh
+      logpath = %(sshd_log)s
+      backend = %(sshd_backend)s
+
+      [caddy-auth]
+      enabled = true
+      port = http,https
+      filter = caddy-auth
+      logpath = /var/log/caddy/access.log
+      maxretry = 10
+  notify: Restart Fail2Ban
+
+- name: Deploy Caddy auth filter for Fail2Ban
+  copy:
+    dest: /etc/fail2ban/filter.d/caddy-auth.conf
+    content: |
+      [Definition]
+      failregex = ^.*"remote_ip":"<HOST>".*"status":401.*$
+                  ^.*"remote_ip":"<HOST>".*"status":403.*$
+      ignoreregex =
+  notify: Restart Fail2Ban
+

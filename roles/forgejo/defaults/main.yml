@@ -1,0 +1,6 @@
+---
+# UID 1000 is the 'git' user inside the Forgejo container.
+# The host directories must be owned by this UID so the container
+# can write to them. This is intentional — not a mistake.
+forgejo_uid: "1000"
+forgejo_gid: "1000"

@@ -9,17 +9,3 @@ dns_resolvers:
   - "1.1.1.1"
   - "8.8.8.8"
 
-# Services Configuration
-services:
-  forgejo:
-    subdomain: "git"
-    container_port: 3000
-    ssh_port: 2222
-    # The "Hot" path for SQLite and app files
-    ssd_path: "/var/lib/forgejo"
-    # The "Mass" path for the actual Git repos
-    zfs_path: "/tank/forgejo"
-    # The version of forgejo we want to install. This will install minor updates and patches
-    image: "codeberg.org/forgejo/forgejo:15"
-  vykar:
-    image: "ghcr.io/borgbase/vykar:latest"

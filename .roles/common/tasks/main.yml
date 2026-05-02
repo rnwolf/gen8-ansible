@@ -1,0 +1,49 @@
+---
+- name: Allow '{{ ansible_user }}' to use sudo without a password
+  copy:
+    content: "{{ ansible_user }} ALL=(ALL) NOPASSWD:ALL\n"
+    dest: "/etc/sudoers.d/{{ ansible_user }}"
+    mode: '0440'
+    validate: '/usr/sbin/visudo -cf %s'
+
+- name: Expand LVM to use full SSD space
+  shell: |
+    lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
+    resize2fs /dev/ubuntu-vg/ubuntu-lv
+  register: lvm_result
+  changed_when: "'already' in lvm_result.stdout == false"
+
+- name: Ensure SSD mount point exists
+  file:
+    path: /storage
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0755'
+
+- name: Install essential system packages
+  apt:
+    name: "{{ common_packages }}"
+    state: present
+    update_cache: yes
+
+- name: Install essential diagnostic tools
+  apt:
+    name: "{{ diagnostic_packages }}"
+    state: present
+
+- name: Apply Netplan configuration
+  template:
+    src: netplan.yaml.j2
+    dest: /etc/netplan/00-installer-config.yaml
+    owner: root
+    group: root
+    mode: '0600'
+  notify: Apply Netplan
+
+- name: Prepare Quadlet directory for Podman services
+  file:
+    path: "{{ quadlet_dir }}"
+    state: directory
+    mode: '0755'
+

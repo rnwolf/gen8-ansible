@@ -1,0 +1,4 @@
+---
+vykar_binary_dest: /usr/local/bin/vykar-server
+vykar_listen: "127.0.0.1:8585"
+vykar_health_url: "http://localhost:8585/health"

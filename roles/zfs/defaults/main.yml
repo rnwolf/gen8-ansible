@@ -1,0 +1,3 @@
+---
+zfs_global_storage: "{{ global_storage }}"
+zfs_global_storage_path: "{{ global_storage_path }}"

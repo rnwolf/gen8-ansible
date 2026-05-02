@@ -1,0 +1,14 @@
+---
+- name: Reload Systemd
+  systemd:
+    daemon_reload: yes
+
+- name: Restart Vykar
+  service:
+    name: vykar-server
+    state: restarted
+
+- name: Reload Caddy
+  command: systemctl reload-or-restart caddy
+  async: 30
+  poll: 5

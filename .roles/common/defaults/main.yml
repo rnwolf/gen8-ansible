@@ -1,0 +1,17 @@
+---
+common_packages:
+  - micro
+  - rsync
+  - git
+  - zfsutils-linux
+  - podman
+  - buildah
+  - slirp4netns
+
+diagnostic_packages:
+  - smartmontools
+  - nvme-cli
+  - htop
+  - iotop
+
+quadlet_dir: /etc/containers/systemd

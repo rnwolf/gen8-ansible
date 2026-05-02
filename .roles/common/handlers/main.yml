@@ -1,0 +1,7 @@
+---
+- name: Apply Netplan
+  command: netplan apply
+
+- name: Reload Systemd
+  systemd:
+    daemon_reload: yes
