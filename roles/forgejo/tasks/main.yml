@@ -1,8 +1,8 @@
 ---
 - name: Verify Split-DNS configuration for Forgejo
-  ansible.builtin.shell: "getent hosts {{ services.forgejo.domain }}"
-  register: dns_check
-  failed_when: ansible_host not in dns_check.stdout
+  ansible.builtin.command: "getent hosts {{ services.forgejo.domain }}"
+  register: forgejo_dns_check
+  failed_when: ansible_host not in forgejo_dns_check.stdout
   changed_when: false
 
 - name: Ensure storage paths exist for Forgejo
@@ -18,7 +18,8 @@
 
 - name: Pre-pull Forgejo image
   ansible.builtin.command: "podman pull {{ services.forgejo.image }}"
-  register: pull_result
+  register: forgejo_pull_result
+  changed_when: "'already' not in forgejo_pull_result.stdout"
   async: 900
   poll: 10
 
@@ -26,6 +27,9 @@
   ansible.builtin.template:
     src: forgejo.container.j2
     dest: /etc/containers/systemd/forgejo.container
+    owner: root
+    group: root
+    mode: '0644'
   notify: Reload Systemd
 
 - name: Flush handlers (daemon-reload before service start)
@@ -51,6 +55,9 @@
   ansible.builtin.template:
     src: forgejo-caddy.j2
     dest: /etc/caddy/conf.d/forgejo
+    owner: root
+    group: root
+    mode: '0644'
   notify: Reload Caddy
 
 - name: Create Forgejo backup cron job (SSD to ZFS)

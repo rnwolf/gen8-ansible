@@ -9,6 +9,6 @@
     state: restarted
 
 - name: Reload Caddy
-  ansible.builtin.command: systemctl reload-or-restart caddy
-  async: 30
-  poll: 5
+  ansible.builtin.systemd:
+    name: caddy
+    state: reloaded

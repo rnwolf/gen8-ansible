@@ -1,5 +1,5 @@
 ---
-- name: Allow '{{ ansible_user }}' to use sudo without a password
+- name: Configure passwordless sudo for ansible user
   ansible.builtin.copy:
     content: "{{ ansible_user }} ALL=(ALL) NOPASSWD:ALL\n"
     dest: "/etc/sudoers.d/{{ ansible_user }}"
@@ -10,8 +10,8 @@
   ansible.builtin.shell: |
     lvextend -l +100%FREE /dev/ubuntu-vg/ubuntu-lv
     resize2fs /dev/ubuntu-vg/ubuntu-lv
-  register: lvm_result
-  changed_when: "'already' in lvm_result.stdout == false"
+  register: common_lvm_result
+  changed_when: "'already' in common_lvm_result.stdout == false"
 
 - name: Ensure SSD mount point exists
   ansible.builtin.file:
@@ -29,7 +29,7 @@
 
 - name: Install essential diagnostic tools
   ansible.builtin.apt:
-    name: "{{ diagnostic_packages }}"
+    name: "{{ common_diagnostic_packages }}"
     state: present
 
 - name: Apply Netplan configuration
@@ -43,7 +43,6 @@
 
 - name: Prepare Quadlet directory for Podman services
   ansible.builtin.file:
-    path: "{{ quadlet_dir }}"
+    path: "{{ common_quadlet_dir }}"
     state: directory
     mode: '0755'
-

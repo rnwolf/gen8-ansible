@@ -6,24 +6,25 @@
 
 # --- POOL MANAGEMENT ---
 
-- name: Check if pool '{{ pool_name }}' is already active
+- name: Check if ZFS pool is already active
   ansible.builtin.command: "zpool list {{ pool_name }}"
-  register: zpool_active
+  register: zfs_pool_active
   failed_when: false
   changed_when: false
 
-- name: Check if pool '{{ pool_name }}' is available for import
+- name: Check if ZFS pool is available for import
   ansible.builtin.command: "zpool import"
-  register: zpool_importable
-  when: zpool_active.rc != 0
+  register: zfs_pool_importable
+  when: zfs_pool_active.rc != 0
   changed_when: false
   failed_when: false
 
 - name: Import existing ZFS pool
   ansible.builtin.command: "zpool import -f {{ pool_name }}"
   when:
-    - zpool_active.rc != 0
-    - pool_name in zpool_importable.stdout
+    - zfs_pool_active.rc != 0
+    - pool_name in zfs_pool_importable.stdout
+  changed_when: true
 
 - name: Create ZFS pool if it does not exist
   ansible.builtin.command: >
@@ -32,8 +33,9 @@
     -O compression=lz4 -O atime=off -O canmount=off
     {{ pool_name }} {{ device_id }}
   when:
-    - zpool_active.rc != 0
-    - pool_name not in zpool_importable.stdout
+    - zfs_pool_active.rc != 0
+    - pool_name not in zfs_pool_importable.stdout
+  changed_when: true
 
 # --- DATASET MANAGEMENT ---
 

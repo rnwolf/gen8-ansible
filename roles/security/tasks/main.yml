@@ -19,12 +19,12 @@
 
 - name: Check current UFW routing rules
   ansible.builtin.command: ufw status verbose
-  register: ufw_status
+  register: security_ufw_status
   changed_when: false
 
 - name: Allow Podman routing to any physical interface
   ansible.builtin.command: ufw route allow in on podman0 out on any
-  when: "'podman0' not in ufw_status.stdout"
+  when: "'podman0' not in security_ufw_status.stdout"
   changed_when: true
 
 - name: Allow essential TCP traffic
@@ -32,7 +32,7 @@
     rule: allow
     port: "{{ item }}"
     proto: tcp
-  loop: "{{ ufw_tcp_ports }}"
+  loop: "{{ security_ufw_tcp_ports }}"
 
 - name: Enable UFW with default deny incoming
   community.general.ufw:
@@ -43,11 +43,14 @@
 - name: Deploy Fail2Ban local configuration
   ansible.builtin.copy:
     dest: /etc/fail2ban/jail.local
+    owner: root
+    group: root
+    mode: '0644'
     content: |
       [DEFAULT]
-      bantime = {{ fail2ban_bantime }}
-      findtime = {{ fail2ban_findtime }}
-      maxretry = {{ fail2ban_maxretry }}
+      bantime = {{ security_fail2ban_bantime }}
+      findtime = {{ security_fail2ban_findtime }}
+      maxretry = {{ security_fail2ban_maxretry }}
 
       [sshd]
       enabled = true
@@ -66,6 +69,9 @@
 - name: Deploy Caddy auth filter for Fail2Ban
   ansible.builtin.copy:
     dest: /etc/fail2ban/filter.d/caddy-auth.conf
+    owner: root
+    group: root
+    mode: '0644'
     content: |
       [Definition]
       failregex = ^.*"remote_ip":"<HOST>".*"status":401.*$

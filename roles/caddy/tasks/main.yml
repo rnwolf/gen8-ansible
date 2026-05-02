@@ -87,6 +87,9 @@
   ansible.builtin.template:
     src: Caddyfile.j2
     dest: "{{ caddy_config_dir }}/Caddyfile"
+    owner: root
+    group: root
+    mode: '0644'
   notify: Reload Caddy
 
 - name: Format Caddyfile
@@ -97,5 +100,7 @@
   ansible.builtin.template:
     src: snippets/security.j2
     dest: "{{ caddy_config_dir }}/snippets/security"
+    owner: root
+    group: root
+    mode: '0644'
   notify: Reload Caddy
-

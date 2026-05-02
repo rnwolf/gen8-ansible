@@ -1,12 +1,12 @@
 ---
-ssh_port: 22
-forgejo_ssh_port: 2222
-ufw_tcp_ports:
-  - "{{ ssh_port }}"
+security_ssh_port: 22
+security_forgejo_ssh_port: 2222
+security_ufw_tcp_ports:
+  - "{{ security_ssh_port }}"
   - "80"
   - "443"
-  - "{{ forgejo_ssh_port }}"
+  - "{{ security_forgejo_ssh_port }}"
 
-fail2ban_bantime: 1h
-fail2ban_findtime: 10m
-fail2ban_maxretry: 5
+security_fail2ban_bantime: 1h
+security_fail2ban_findtime: 10m
+security_fail2ban_maxretry: 5

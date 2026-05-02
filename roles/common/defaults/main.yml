@@ -8,10 +8,10 @@ common_packages:
   - buildah
   - slirp4netns
 
-diagnostic_packages:
+common_diagnostic_packages:
   - smartmontools
   - nvme-cli
   - htop
   - iotop
 
-quadlet_dir: /etc/containers/systemd
+common_quadlet_dir: /etc/containers/systemd
