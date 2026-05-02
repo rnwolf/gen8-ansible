@@ -1,6 +1,6 @@
 ---
 - name: Create caddy system user
-  user:
+  ansible.builtin.user:
     name: "{{ caddy_user }}"
     system: yes
     shell: /sbin/nologin
@@ -8,7 +8,7 @@
     create_home: yes
 
 - name: Create Caddy log directory
-  file:
+  ansible.builtin.file:
     path: "{{ caddy_log_dir }}"
     state: directory
     owner: "{{ caddy_user }}"
@@ -16,7 +16,7 @@
     mode: '0755'
 
 - name: Create Caddy configuration directories
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     mode: '0755'
@@ -25,14 +25,14 @@
     - "{{ caddy_config_dir }}/conf.d"
 
 - name: Download Caddy with Cloudflare plugin
-  get_url:
+  ansible.builtin.get_url:
     url: "{{ caddy_binary_url }}"
     dest: "{{ caddy_binary_dest }}"
     mode: '0755'
   notify: Restart Caddy
 
 - name: Deploy Caddy systemd service unit
-  copy:
+  ansible.builtin.copy:
     dest: /etc/systemd/system/caddy.service
     mode: '0644'
     content: |
@@ -59,13 +59,13 @@
   notify: Reload Systemd
 
 - name: Create Systemd override directory for Caddy
-  file:
+  ansible.builtin.file:
     path: /etc/systemd/system/caddy.service.d
     state: directory
     mode: '0755'
 
 - name: Inject Cloudflare Token into Caddy environment
-  template:
+  ansible.builtin.template:
     src: caddy_override.conf.j2
     dest: /etc/systemd/system/caddy.service.d/override.conf
     mode: '0600'
@@ -74,27 +74,28 @@
     - Restart Caddy
 
 - name: Flush handlers (ensure daemon-reload before service start)
-  meta: flush_handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Enable and start Caddy service
-  systemd:
+  ansible.builtin.systemd:
     name: caddy
     enabled: yes
     state: started
     daemon_reload: yes
 
 - name: Deploy Global Caddyfile
-  template:
+  ansible.builtin.template:
     src: Caddyfile.j2
     dest: "{{ caddy_config_dir }}/Caddyfile"
   notify: Reload Caddy
 
 - name: Format Caddyfile
-  command: caddy fmt --overwrite {{ caddy_config_dir }}/Caddyfile
+  ansible.builtin.command: caddy fmt --overwrite {{ caddy_config_dir }}/Caddyfile
   changed_when: false
 
 - name: Deploy Reusable Security Snippets
-  template:
+  ansible.builtin.template:
     src: snippets/security.j2
     dest: "{{ caddy_config_dir }}/snippets/security"
   notify: Reload Caddy
+

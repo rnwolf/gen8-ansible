@@ -2,7 +2,7 @@
 # --- USER & DIRECTORIES ---
 
 - name: Create vykar system user
-  user:
+  ansible.builtin.user:
     name: vykar
     system: yes
     shell: /sbin/nologin
@@ -10,7 +10,7 @@
     create_home: no
 
 - name: Ensure SSD config directory exists
-  file:
+  ansible.builtin.file:
     path: "{{ services.vykar.ssd_path }}"
     state: directory
     owner: vykar
@@ -18,7 +18,7 @@
     mode: '0750'
 
 - name: Ensure ZFS data directory is owned by vykar
-  file:
+  ansible.builtin.file:
     path: "{{ services.vykar.zfs_path }}"
     state: directory
     owner: vykar
@@ -28,7 +28,7 @@
 # --- BINARY ---
 
 - name: Get latest Vykar release info from GitHub
-  uri:
+  ansible.builtin.uri:
     url: https://api.github.com/repos/borgbase/vykar/releases/latest
     return_content: yes
     headers:
@@ -36,7 +36,7 @@
   register: vykar_release
 
 - name: Extract linux x86_64 download URL
-  set_fact:
+  ansible.builtin.set_fact:
     vykar_download_url: >-
       {{ vykar_release.json.assets
          | selectattr('name', 'match', '.*x86_64-unknown-linux-gnu.*')
@@ -45,14 +45,14 @@
     vykar_version: "{{ vykar_release.json.tag_name }}"
 
 - name: Download and extract Vykar tarball
-  unarchive:
+  ansible.builtin.unarchive:
     src: "{{ vykar_download_url }}"
     dest: /tmp
     remote_src: yes
     creates: /tmp/vykar-server
 
 - name: Install vykar-server binary
-  copy:
+  ansible.builtin.copy:
     src: /tmp/vykar-server
     dest: "{{ vykar_binary_dest }}"
     mode: '0755'
@@ -61,7 +61,7 @@
 # --- CONFIGURATION ---
 
 - name: Deploy Vykar environment file
-  template:
+  ansible.builtin.template:
     src: vykar-server.env.j2
     dest: "{{ services.vykar.ssd_path }}/vykar-server.env"
     owner: vykar
@@ -70,7 +70,7 @@
   notify: Restart Vykar
 
 - name: Deploy Vykar systemd service unit
-  template:
+  ansible.builtin.template:
     src: vykar-server.service.j2
     dest: /etc/systemd/system/vykar-server.service
     owner: root
@@ -81,10 +81,10 @@
     - Restart Vykar
 
 - name: Flush handlers (daemon-reload before service start)
-  meta: flush_handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Enable and start Vykar service
-  systemd:
+  ansible.builtin.systemd:
     name: vykar-server
     state: started
     enabled: yes
@@ -92,7 +92,7 @@
 # --- SMOKE TEST ---
 
 - name: Wait for Vykar health endpoint to respond
-  uri:
+  ansible.builtin.uri:
     url: "{{ vykar_health_url }}"
     status_code: 200
   retries: 5
@@ -101,7 +101,7 @@
 # --- CADDY ---
 
 - name: Ensure Caddy log file exists for Vykar
-  file:
+  ansible.builtin.file:
     path: /var/log/caddy/vykar.log
     state: touch
     owner: caddy
@@ -111,7 +111,7 @@
     access_time: preserve
 
 - name: Deploy Vykar Caddy config
-  template:
+  ansible.builtin.template:
     src: vykar-caddy.j2
     dest: /etc/caddy/conf.d/vykar
     owner: root
@@ -120,7 +120,7 @@
   notify: Reload Caddy
 
 - name: Validate Caddy config
-  command: caddy validate --config /etc/caddy/Caddyfile
+  ansible.builtin.command: caddy validate --config /etc/caddy/Caddyfile
   changed_when: false
   environment:
     CF_API_TOKEN: "{{ vault_cloudflare_token }}"

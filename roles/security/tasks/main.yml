@@ -1,6 +1,6 @@
 ---
 - name: Install security packages
-  apt:
+  ansible.builtin.apt:
     name:
       - ufw
       - fail2ban
@@ -8,7 +8,7 @@
     update_cache: yes
 
 - name: Configure SSH daemon hardening
-  lineinfile:
+  ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
     regexp: "{{ item.regexp }}"
     line: "{{ item.line }}"
@@ -18,30 +18,30 @@
   notify: Restart SSH
 
 - name: Check current UFW routing rules
-  command: ufw status verbose
+  ansible.builtin.command: ufw status verbose
   register: ufw_status
   changed_when: false
 
 - name: Allow Podman routing to any physical interface
-  command: ufw route allow in on podman0 out on any
+  ansible.builtin.command: ufw route allow in on podman0 out on any
   when: "'podman0' not in ufw_status.stdout"
   changed_when: true
 
 - name: Allow essential TCP traffic
-  ufw:
+  community.general.ufw:
     rule: allow
     port: "{{ item }}"
     proto: tcp
   loop: "{{ ufw_tcp_ports }}"
 
 - name: Enable UFW with default deny incoming
-  ufw:
+  community.general.ufw:
     state: enabled
     policy: deny
     direction: incoming
 
 - name: Deploy Fail2Ban local configuration
-  copy:
+  ansible.builtin.copy:
     dest: /etc/fail2ban/jail.local
     content: |
       [DEFAULT]
@@ -64,7 +64,7 @@
   notify: Restart Fail2Ban
 
 - name: Deploy Caddy auth filter for Fail2Ban
-  copy:
+  ansible.builtin.copy:
     dest: /etc/fail2ban/filter.d/caddy-auth.conf
     content: |
       [Definition]

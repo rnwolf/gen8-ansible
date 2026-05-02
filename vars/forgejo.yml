@@ -1,7 +1,7 @@
 ---
 - name: Deploy Forgejo via Quadlets
   hosts: gen8
-  become: yes
+  become: true
   vars_files:
     - vars/main.yml
     - vars/secrets.yml
@@ -12,7 +12,7 @@
       register: dns_check
       failed_when: ansible_host not in dns_check.stdout
       changed_when: false
-      # EXPLANATION: This ensures your Unifi UX7 'A' record is active 
+      # EXPLANATION: This ensures your Unifi UX7 'A' record is active
       # and pointing to the Gen8 (192.168.0.50) before we proceed.
 
     - name: Ensure Storage paths exist for Forgejo
@@ -25,7 +25,7 @@
       loop:
         - "{{ services.forgejo.ssd_path }}"
         - "{{ services.forgejo.zfs_path }}"
-    
+
     - name: Pre-pull Forgejo v15 LTS image
       command: "podman pull {{ services.forgejo.image }}"
       register: pull_result

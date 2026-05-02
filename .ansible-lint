@@ -1,0 +1,7 @@
+skip_list: # Rules to completely ignore
+  - name[missing]
+  - yaml[commas]
+  - yaml[truthy]
+  - yaml[trailing-spaces]
+  - yaml[empty-lines]
+

@@ -1,12 +1,12 @@
 ---
 - name: Verify Split-DNS configuration for Forgejo
-  shell: "getent hosts {{ services.forgejo.domain }}"
+  ansible.builtin.shell: "getent hosts {{ services.forgejo.domain }}"
   register: dns_check
   failed_when: ansible_host not in dns_check.stdout
   changed_when: false
 
 - name: Ensure storage paths exist for Forgejo
-  file:
+  ansible.builtin.file:
     path: "{{ item }}"
     state: directory
     owner: "{{ forgejo_uid }}"
@@ -17,28 +17,28 @@
     - "{{ services.forgejo.zfs_path }}"
 
 - name: Pre-pull Forgejo image
-  command: "podman pull {{ services.forgejo.image }}"
+  ansible.builtin.command: "podman pull {{ services.forgejo.image }}"
   register: pull_result
   async: 900
   poll: 10
 
 - name: Deploy Forgejo Quadlet
-  template:
+  ansible.builtin.template:
     src: forgejo.container.j2
     dest: /etc/containers/systemd/forgejo.container
   notify: Reload Systemd
 
 - name: Flush handlers (daemon-reload before service start)
-  meta: flush_handlers
+  ansible.builtin.meta: flush_handlers
 
 - name: Ensure Forgejo service is running
-  systemd:
+  ansible.builtin.systemd:
     name: forgejo
     state: started
     enabled: yes
 
 - name: Ensure Caddy log file exists for Forgejo
-  file:
+  ansible.builtin.file:
     path: /var/log/caddy/forgejo.log
     state: touch
     owner: caddy
@@ -48,7 +48,7 @@
     access_time: preserve
 
 - name: Deploy Caddy site config for Forgejo
-  template:
+  ansible.builtin.template:
     src: forgejo-caddy.j2
     dest: /etc/caddy/conf.d/forgejo
   notify: Reload Caddy
